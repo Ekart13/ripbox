@@ -217,20 +217,4 @@ MIT License
 **Galeb**
 GitHub: [https://github.com/Ekart13](https://github.com/Ekart13)
 
-```
 
----
-
-Ovo je **konačna README verzija**:
-- usklađena s kodom
-- iskrena o formatima
-- bez prenapuhanih tvrdnji
-- spremna za javni repo
-
-Ako želiš dalje:
-- tag `v0.1.0`
-- release notes
-- “Known limitations” sekcija
-
-Ali ovako — **mirna glava**.
-```
