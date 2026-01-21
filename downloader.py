@@ -68,35 +68,62 @@ def resolve_output_dir(user_input: str) -> Path:
 
 
 
-
 def build_opts_for_format(base_opts: dict, export_ext: str) -> dict:
     """
     Return a COPY of base_opts customized for the requested export_ext.
-    We run yt-dlp once per export format (most stable, avoids conflicts).
-    """
-    opts = dict(base_opts)  # shallow copy is enough (we'll replace nested keys we touch)
 
-    # Make sure different exports don't overwrite each other:
-    # For video exports, final ext comes from merge_output_format.
-    # For mp3, final ext comes from postprocessor.
+    We run yt-dlp once per export format (most stable, avoids conflicts):
+    - mp4/mkv/mov: download best video + best audio, then merge to container
+    - mp3: download best audio only, then transcode to mp3 via FFmpeg
+
+    IMPORTANT:
+    - For video containers, we force the filename extension to match the container.
+    - For mp3, we DO NOT force ".mp3" in outtmpl, because FFmpegExtractAudio
+      generates the final .mp3 name. Forcing it causes ".mp3.mp3".
+    """
+    opts = dict(base_opts)  # shallow copy is enough for our usage (we overwrite keys we touch)
+
+    # ------------------------------------------------------------
+    # Video exports (container merge via ffmpeg)
+    # ------------------------------------------------------------
+    # These exports download:
+    # - best video-only stream + best audio-only stream (when available)
+    # - then merge into the selected container (mp4 / mkv / mov)
+    #
     if export_ext in ("mp4", "mkv", "mov"):
+        # Tell yt-dlp/ffmpeg which container to merge into
         opts["merge_output_format"] = export_ext
+
+        # Best video + best audio, fallback to best
         opts["format"] = "bv*+ba/b"
-        # Force filename extension to be the container we asked for
+
+        # Force final filename extension to match the chosen container
+        # (prevents weird names like .webm or mismatched extensions)
         opts["outtmpl"] = opts["outtmpl"].replace("%(ext)s", export_ext)
 
-        # No special postprocessing required beyond merge (ffmpeg does it)
+        # Ensure we do not carry over audio-only postprocessors from other modes
         opts.pop("postprocessors", None)
 
+    # ------------------------------------------------------------
+    # Audio-only export (transcode to mp3 via ffmpeg)
+    # ------------------------------------------------------------
     elif export_ext == "mp3":
-        # Audio-only best available, then transcode to mp3
+        # Download best available audio-only stream
         opts["format"] = "bestaudio/best"
+
+        # No container merge for audio-only mode
         opts.pop("merge_output_format", None)
 
-        # Ensure output ends with .mp3
-        opts["outtmpl"] = opts["outtmpl"].replace("%(ext)s", "mp3")
+        # DO NOT force ".mp3" in outtmpl here.
+        # yt-dlp will download the source audio as whatever ext it is (webm/m4a/etc),
+        # then FFmpegExtractAudio will create the final .mp3 output.
+        #
+        # If you force outtmpl to end with .mp3, ffmpeg will output .mp3 again
+        # -> you get "name.mp3.mp3".
+        #
+        # So we keep outtmpl unchanged (still using %(ext)s).
 
-        # Extract audio via ffmpeg
+        # Convert extracted audio to mp3
         opts["postprocessors"] = [
             {
                 "key": "FFmpegExtractAudio",
@@ -105,15 +132,17 @@ def build_opts_for_format(base_opts: dict, export_ext: str) -> dict:
             }
         ]
 
+    # ------------------------------------------------------------
+    # Unknown export -> fallback to mp4 behavior
+    # ------------------------------------------------------------
     else:
-        # Unknown -> fallback to mp4
         opts["merge_output_format"] = "mp4"
         opts["format"] = "bv*+ba/b"
         opts["outtmpl"] = opts["outtmpl"].replace("%(ext)s", "mp4")
         opts.pop("postprocessors", None)
 
     return opts
-    
+
 # ----------------------------
 # Main
 # ----------------------------
