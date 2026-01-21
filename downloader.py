@@ -113,52 +113,133 @@ def build_opts_for_format(base_opts: dict, export_ext: str) -> dict:
         opts.pop("postprocessors", None)
 
     return opts
+    
 # ----------------------------
 # Main
 # ----------------------------
 
 def main() -> None:
+    """
+    Main program loop.
+
+    Responsibilities:
+    - Handle user interaction (URL, output folder, formats)
+    - Resolve output directory safely
+    - Build base yt-dlp options
+    - Run downloads for each selected export format
+    - Handle errors without crashing the entire program
+
+    This function intentionally keeps high-level control flow only.
+    All detailed logic is delegated to helper functions.
+    """
+
+    # --------------------------------------------------------
+    # Program header
+    # --------------------------------------------------------
+    # Printed once when the program starts.
+    # Helps the user immediately understand what the tool does.
+    #
     print("=== Universal video downloader (YouTube / X / Instagram / TikTok / Facebook) ===")
     print("Empty URL -> exit.\n")
 
+    # --------------------------------------------------------
+    # Main interactive loop
+    # --------------------------------------------------------
+    # The program keeps running until the user provides
+    # an empty URL (presses Enter).
+    #
     while True:
+
+        # ----------------------------------------------------
+        # Ask for video / playlist URL
+        # ----------------------------------------------------
         url = ask("→ Paste URL: ")
+
+        # Empty input means user wants to exit cleanly
         if not url:
             print("Done. Bye!")
             return
 
-        target = ask("→ Output subfolder (relative to Downloads, empty = Downloads): ")
+        # ----------------------------------------------------
+        # Ask for output directory (relative to Downloads)
+        # ----------------------------------------------------
+        target = ask(
+            "→ Output subfolder (relative to Downloads, empty = Downloads): "
+        )
 
+        # Resolve and validate output directory
+        # - Always rooted in ~/Downloads
+        # - Absolute paths are rejected
+        # - Subfolders are created automatically
+        #
         try:
             out_dir = resolve_output_dir(target)
         except ValueError as e:
+            # Invalid input (e.g. absolute path)
             print(f"❌ {e}")
             continue
 
+        # Inform user where files will be saved
         print(f"[i] Saving to: {out_dir}")
 
+        # ----------------------------------------------------
+        # Ask which formats to export
+        # ----------------------------------------------------
         exports = choose_formats(ask)
+
+        # Show selected formats before starting downloads
         print(f"[i] Export(s): {', '.join(exports)}")
 
+        # ----------------------------------------------------
+        # Build base yt-dlp options
+        # ----------------------------------------------------
+        # These options are shared across all export formats
+        # (cookies, retries, JS handling, output template, etc.)
+        #
         base_opts = build_base_opts(out_dir)
 
+        # ----------------------------------------------------
+        # Download loop (one run per export format)
+        # ----------------------------------------------------
         any_fail = False
+
         for export_ext in exports:
+            # Visual separator for clarity in CLI output
             print(f"\n=== Export: {export_ext} ===")
+
+            # Build format-specific options
+            # (container, postprocessors, format selection)
+            #
             ydl_opts = build_opts_for_format(base_opts, export_ext)
 
             try:
+                # Create yt-dlp instance with prepared options
                 with YoutubeDL(ydl_opts) as ydl:
-                    result = ydl.download([url])  # 0 on success
+
+                    # Download returns 0 on success
+                    # Non-zero means partial or full failure
+                    #
+                    result = ydl.download([url])
+
                     if result == 0:
                         print(f"✅ Done: {export_ext}")
                     else:
                         any_fail = True
-                        print(f"⚠️ Some items failed for export {export_ext}. Check logs above.")
+                        print(
+                            f"⚠️ Some items failed for export {export_ext}. "
+                            "Check logs above."
+                        )
+
             except Exception as e:
+                # Catch unexpected exceptions so the program
+                # does not crash mid-session
+                #
                 any_fail = True
                 print(f"❌ Error on export {export_ext}: {e}")
 
+        # ----------------------------------------------------
+        # Final status summary for this URL
+        # ----------------------------------------------------
         if any_fail:
             print("\n⚠️ Finished with some errors.\n")
         else:
