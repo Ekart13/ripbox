@@ -1,6 +1,6 @@
 
 
-# downloader
+# ripbox
 
 Universal interactive **video & audio downloader** written in **Python**, powered by **yt-dlp**.
 
