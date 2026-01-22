@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ripbox"
+version = "0.1.0"
+description = "Interactive Python-based yt-dlp wrapper for YouTube and many other sites."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "yt-dlp",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[project.scripts]
+ripbox = "ripbox.cli:main"

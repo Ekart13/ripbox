@@ -1,23 +1,23 @@
 
-
 # ripbox
 
 Universal interactive **video & audio downloader** written in **Python**, powered by **yt-dlp**.
 
-Supports downloading from **YouTube, X (Twitter), Instagram, TikTok, Facebook** and other platforms — including playlists — with automatic format selection, merging, and audio extraction.
+Downloads from **YouTube, X (Twitter), Instagram, TikTok, Facebook**, and many other supported sites — including playlists — with automatic format selection, merging, and audio extraction.
 
-Designed as a **clean Python CLI tool**, focused on reliability and real-world yt-dlp edge cases rather than marketing promises.
+Designed as a **clean Python CLI tool** focused on reliability and real-world yt-dlp behavior (not marketing promises).
 
+---
 
 ## Features
 
 - Interactive CLI (no long command-line flags)
 - Multiple export formats in a single run:
-  - MP4 (default)
-  - MKV
-  - MOV
-  - MP3 (audio-only)
-- Best available video + audio merge via **ffmpeg**
+  - **MP4** (default)
+  - **MKV**
+  - **MOV** (best-effort)
+  - **MP3** (audio-only)
+- Best available **video + audio** merge via **ffmpeg**
 - Playlist support (when supported by the platform)
 - Predictable output location:
   - Always uses the system **Downloads** directory
@@ -26,12 +26,12 @@ Designed as a **clean Python CLI tool**, focused on reliability and real-world y
   - Uses `cookies.txt` if present
   - Falls back to Firefox browser cookies
 - Hardened YouTube setup:
-  - Avoids broken WEB client
+  - Avoids the broken WEB client
   - Uses `tv`, `mweb`, `tv_embedded` clients
-  - JS challenge solving via **EJS**
-  - Optional PO token support for mweb formats
-- Safe filenames and long-title trimming
-- Resume support and retry logic
+  - JS challenge solving via **EJS** (Node.js)
+  - Optional PO token support for some mweb formats
+- Safe filenames + long-title trimming
+- Resume support + retry logic
 
 ---
 
@@ -39,14 +39,14 @@ Designed as a **clean Python CLI tool**, focused on reliability and real-world y
 
 Not all platforms provide all formats equally.
 
-- **MP4** is the most reliable format across all services
+- **MP4** is the most reliable format across services
 - **MKV** usually works where MP4 works
 - **MOV** is best-effort:
-  - Some platforms (especially YouTube) do not natively provide MOV-compatible streams
-  - MOV export may fail or require re-encoding depending on the source
+  - Some platforms (especially YouTube) do not provide MOV-friendly streams
+  - MOV export may fail (ffmpeg conversion limitations / container constraints)
 - **MP3** works reliably as audio-only extraction
 
-If a format fails for a specific platform, this is usually a **source limitation**, not a bug in the script.
+If a format fails for a specific platform, it’s often a **source/container limitation**, not necessarily a bug in ripbox.
 
 ---
 
@@ -55,7 +55,7 @@ If a format fails for a specific platform, this is usually a **source limitation
 - **Python** 3.10+
 - **ffmpeg**
 - **yt-dlp**
-- *(Optional)* **Node.js** — required only for some YouTube JS challenges (EJS)
+- *(Optional)* **Node.js** — only needed for some YouTube JS challenges (EJS)
 
 ---
 
@@ -65,11 +65,11 @@ If a format fails for a specific platform, this is usually a **source limitation
 sudo pacman -S ffmpeg nodejs
 ````
 
-Clone the repository and prepare the environment:
+Clone the repository and set up a virtual environment:
 
 ```bash
-git clone https://github.com/Ekart13/downloader.git
-cd downloader
+git clone https://github.com/Ekart13/ripbox.git
+cd ripbox
 
 python -m venv .venv
 source .venv/bin/activate
@@ -80,10 +80,19 @@ pip install -r requirements.txt
 
 ## Usage
 
-Run the script:
+### Recommended (installed CLI inside venv)
+
+From inside the virtual environment:
 
 ```bash
-python downloader.py
+pip install -e .
+ripbox
+```
+
+### Direct run (without installing)
+
+```bash
+python -m ripbox.cli
 ```
 
 You will be prompted for:
@@ -92,7 +101,9 @@ You will be prompted for:
 2. Output subfolder (relative to Downloads)
 3. Export format(s)
 
-### Output directory behavior
+---
+
+## Output Directory Behavior
 
 * **Empty input** → uses `~/Downloads`
 * `yt` → `~/Downloads/yt`
@@ -100,7 +111,9 @@ You will be prompted for:
 
 Subfolders are created automatically.
 
-### Export format selection
+---
+
+## Export Format Selection
 
 ```
 1 = MP4 (default)
@@ -117,12 +130,13 @@ Examples:
 
 Each format is processed independently to avoid conflicts.
 
+---
 
 ## Cookies & Authentication
 
 Cookie handling is automatic:
 
-1. If `cookies.txt` exists next to the script, it is used.
+1. If `cookies.txt` exists next to the script/package, it is used.
 2. Otherwise, cookies are read directly from **Firefox**.
 
 This enables access to:
@@ -133,45 +147,48 @@ This enables access to:
 
 ### Creating `cookies.txt` manually (optional)
 
-In most cases, no manual setup is required.  
+In most cases, no manual setup is required.
 If downloads fail due to login, age, or region restrictions, you can create `cookies.txt` yourself.
 
 **Method 1: Using yt-dlp (recommended)**
 
 ```bash
 yt-dlp --cookies-from-browser firefox --cookies cookies.txt
-````
+```
 
 This reads cookies from your Firefox profile and saves them to `cookies.txt`.
 
 **Method 2: Browser extension**
 
-You can also export cookies using a browser extension, such as:
+You can export cookies using a browser extension such as:
 
-* *Get cookies.txt* (Firefox / Chromium)
+* **Get cookies.txt** (Firefox / Chromium)
 
 Steps:
 
 1. Log in to the website in your browser
-2. Use the extension to export cookies
-3. Save the file as `cookies.txt`
-4. Place it next to `downloader.py`
+2. Export cookies using the extension
+3. Save as `cookies.txt`
+4. Place it in the project root (same level as `pyproject.toml`)
 
+> Never commit `cookies.txt`.
+> It is intentionally ignored via `.gitignore`.
 
+---
 
 ## YouTube Notes
 
-Due to frequent YouTube changes:
+YouTube changes frequently:
 
 * The standard WEB client may be broken or SABR-only
 * JS challenges may be required
 * Some mweb formats require a PO token
 
-This script:
+ripbox:
 
-* Avoids the WEB client entirely
-* Enables **EJS + Node.js**
-* Allows optional PO token injection
+* Avoids the WEB client
+* Enables **EJS + Node.js** when available
+* Supports optional PO token injection
 
 ### Optional PO Token
 
@@ -183,9 +200,9 @@ Only required for specific YouTube formats.
 
 ---
 
-## Output Format
+## Output Filename Format
 
-Downloaded files are saved as:
+Files are saved as:
 
 ```
 Title [VideoID].ext
@@ -200,9 +217,11 @@ Title [VideoID].ext
 ## Code Structure
 
 ```
-downloader.py   # Main control flow and CLI loop
-formats.py      # Format selection and format-specific logic
-ytdlp_opts.py   # yt-dlp configuration, cookies, runtime setup
+ripbox/
+  __init__.py
+  cli.py          # Main CLI entrypoint (ripbox command)
+  formats.py      # Format menu + format selection logic
+  ytdlp_opts.py   # yt-dlp base configuration (cookies, extractors, runtimes)
 ```
 
 ---
@@ -210,9 +229,9 @@ ytdlp_opts.py   # yt-dlp configuration, cookies, runtime setup
 ## Troubleshooting
 
 * **ffmpeg not found** → install `ffmpeg`
-* **Node errors** → ensure `node` is in PATH
+* **Node errors** → ensure `node` is in PATH (only needed for some YouTube cases)
 * **403 / login errors** → provide cookies
-* **Format fails on specific platform** → expected in some cases
+* **Format fails on specific platform** → expected in some cases (try MP4)
 * **Playlist item failures** → expected; script continues
 
 ---

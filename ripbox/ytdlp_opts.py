@@ -178,3 +178,75 @@ def build_base_opts(out_dir: Path) -> dict:
         opts["cookiesfrombrowser"] = ("firefox",)
 
     return opts
+
+def build_opts_for_format(base_opts: dict, export_ext: str) -> dict:
+    """
+    Customize yt-dlp options for a specific export format.
+
+    This function takes the shared BASE options and applies
+    format-specific behavior:
+
+    - mp4 / mkv / mov:
+        * download best video + best audio
+        * merge streams into the selected container via ffmpeg
+
+    - mp3:
+        * download best audio-only stream
+        * transcode to MP3 using ffmpeg
+
+    Each export is executed in a separate yt-dlp run to avoid
+    format collisions and ensure stability.
+    """
+
+    # Create a shallow copy so we don't mutate base options
+    opts = dict(base_opts)
+
+    # ------------------------------------------------------------
+    # Video formats (container merge)
+    # ------------------------------------------------------------
+    if export_ext in ("mp4", "mkv", "mov"):
+        # Tell ffmpeg which container to merge into
+        opts["merge_output_format"] = export_ext
+
+        # Best video + best audio, fallback to best
+        opts["format"] = "bv*+ba/b"
+
+        # Force output filename extension to match container
+        # Prevents mismatches like .webm inside .mp4 name
+        opts["outtmpl"] = opts["outtmpl"].replace("%(ext)s", export_ext)
+
+        # Ensure no audio-only postprocessors leak in
+        opts.pop("postprocessors", None)
+
+    # ------------------------------------------------------------
+    # Audio-only export (MP3)
+    # ------------------------------------------------------------
+    elif export_ext == "mp3":
+        # Download best available audio stream
+        opts["format"] = "bestaudio/best"
+
+        # No container merge for audio-only mode
+        opts.pop("merge_output_format", None)
+
+        # IMPORTANT:
+        # We intentionally DO NOT force ".mp3" in outtmpl.
+        # ffmpeg will generate the final .mp3 filename.
+        # Forcing it would result in ".mp3.mp3".
+        opts["postprocessors"] = [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "0",  # best VBR quality
+            }
+        ]
+
+    # ------------------------------------------------------------
+    # Unknown format -> safe fallback to MP4
+    # ------------------------------------------------------------
+    else:
+        opts["merge_output_format"] = "mp4"
+        opts["format"] = "bv*+ba/b"
+        opts["outtmpl"] = opts["outtmpl"].replace("%(ext)s", "mp4")
+        opts.pop("postprocessors", None)
+
+    return opts
